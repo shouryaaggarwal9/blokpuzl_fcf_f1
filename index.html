@@ -7,6 +7,17 @@
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover"
     />
     <title>Block Puzzle</title>
+
+    <!-- PWA & Mobile Web App Meta -->
+    <meta name="theme-color" content="#0c1017" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta
+      name="apple-mobile-web-app-status-bar-style"
+      content="black-translucent"
+    />
+    <meta name="apple-mobile-web-app-title" content="BlokPuzl" />
+    <link rel="apple-touch-icon" href="/pwa-192x192.png" />
+
     <style>
       * {
         margin: 0;
@@ -28,7 +39,7 @@
         width: 100vw;
         height: 100vh;
         display: grid;
-        place-items: center; /* Perfect, infallible CSS centering */
+        place-items: center;
       }
       canvas {
         display: block !important;

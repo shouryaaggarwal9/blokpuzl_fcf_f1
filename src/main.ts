@@ -52,20 +52,10 @@ class GameScene extends Phaser.Scene {
       () => this.captureSnapshot(),
       (tileCount) => this.handlePiecePlaced(tileCount),
       () => this.checkGameOver(),
-      () => this.resetRoundPowers(),
+      () => {},
     );
 
     this.restorePreviousSession();
-  }
-
-  private resetRoundPowers(): void {
-    this.canSwapThisRound = true;
-    this.canBombThisRound = true;
-    this.ui.updateActionButtons(
-      this.canUndo,
-      this.canSwapThisRound,
-      this.canBombThisRound,
-    );
   }
 
   private captureSnapshot(): void {
@@ -169,7 +159,7 @@ class GameScene extends Phaser.Scene {
     this.modals.showConfirmation({
       title: "SWAP ALL PIECES?",
       disclaimer:
-        "Replaces all unplaced tray pieces with 3 fresh shapes.\n(1 use per round)",
+        "Replaces all unplaced tray pieces with 3 fresh shapes.\n(1 use per game)",
       btnColor: 0x0284c7,
       btnLabel: "CONFIRM SWAP",
       onConfirm: () => {
@@ -191,7 +181,7 @@ class GameScene extends Phaser.Scene {
     this.modals.showConfirmation({
       title: "ACTIVATE 3x3 BOMB?",
       disclaimer:
-        "Tap any cell on the board to vaporize a 3x3 area.\n(1 use per round)",
+        "Tap any cell on the board to vaporize a 3x3 area.\n(1 use per game)",
       btnColor: 0xdc2626,
       btnLabel: "ACTIVATE BOMB",
       onConfirm: () => {
@@ -265,7 +255,8 @@ class GameScene extends Phaser.Scene {
     this.score = 0;
     this.canUndo = false;
     this.lastSnapshot = null;
-    this.resetRoundPowers();
+    this.canSwapThisRound = true;
+    this.canBombThisRound = true;
     this.ui.updateScores(this.score, this.bestScore);
     this.ui.updateActionButtons(
       this.canUndo,
