@@ -6,6 +6,7 @@ import { sounds } from "./SoundManager";
 import { StorageManager } from "./StorageManager";
 import { ModalManager } from "./ModalManager";
 import { UIManager } from "./UIManager";
+import "virtual:pwa-register";
 
 interface UndoSnapshot {
   gridData: number[][];
