@@ -3,6 +3,7 @@ import { Board } from "./Board";
 import { Tray } from "./Tray";
 import { type ShapeTemplate } from "./constants";
 import { sounds } from "./SoundManager";
+import { StorageManager } from "./StorageManager";
 
 interface UndoSnapshot {
   gridData: number[][];
@@ -18,6 +19,7 @@ class GameScene extends Phaser.Scene {
   private tray!: Tray;
   private score = 0;
   private bestScore = 0;
+  private streakCount = 1;
   private scoreText!: Phaser.GameObjects.Text;
   private bestScoreText!: Phaser.GameObjects.Text;
   private activeModal?: Phaser.GameObjects.Container;
@@ -41,6 +43,9 @@ class GameScene extends Phaser.Scene {
   }
 
   create() {
+    this.bestScore = StorageManager.getBestScore();
+    this.streakCount = StorageManager.updateAndGetStreak();
+
     this.createHeader();
     this.createAdBillboard();
     this.board = new Board(this);
@@ -54,10 +59,13 @@ class GameScene extends Phaser.Scene {
       () => this.checkGameOver(),
       () => this.resetRoundPowers(),
     );
+
+    this.restorePreviousSession();
   }
 
   private createHeader() {
-    this.add.text(40, 22, "SCORE", {
+    // Score display
+    this.add.text(35, 22, "SCORE", {
       fontFamily: FONT_FAMILY,
       fontSize: "11px",
       color: "#94a3b8",
@@ -65,7 +73,7 @@ class GameScene extends Phaser.Scene {
       resolution: 2,
     });
 
-    this.scoreText = this.add.text(40, 36, "0", {
+    this.scoreText = this.add.text(35, 36, "0", {
       fontFamily: FONT_FAMILY,
       fontSize: "28px",
       color: "#ffffff",
@@ -73,7 +81,8 @@ class GameScene extends Phaser.Scene {
       resolution: 2,
     });
 
-    this.add.text(360, 22, "BEST", {
+    // Best Score display
+    this.add.text(210, 22, "BEST", {
       fontFamily: FONT_FAMILY,
       fontSize: "11px",
       color: "#94a3b8",
@@ -81,16 +90,31 @@ class GameScene extends Phaser.Scene {
       resolution: 2,
     });
 
-    this.bestScoreText = this.add.text(360, 36, this.bestScore.toString(), {
+    this.bestScoreText = this.add.text(210, 36, this.bestScore.toString(), {
       fontFamily: FONT_FAMILY,
       fontSize: "28px",
       color: "#fbbf24",
       fontStyle: "bold",
       resolution: 2,
     });
+
+    // Daily Streak Badge
+    const streakPlate = this.add.rectangle(350, 42, 65, 30, 0x182030);
+    streakPlate.setStrokeStyle(1, 0xf97316);
+
+    this.add
+      .text(350, 42, `🔥 ${this.streakCount}d`, {
+        fontFamily: FONT_FAMILY,
+        fontSize: "13px",
+        color: "#fb923c",
+        fontStyle: "bold",
+        resolution: 2,
+      })
+      .setOrigin(0.5);
+
     // Audio Mute Toggle Button
     const muteBtn = this.add
-      .text(435, 38, "🔊", {
+      .text(435, 42, "🔊", {
         fontSize: "20px",
         resolution: 2,
       })
@@ -230,12 +254,13 @@ class GameScene extends Phaser.Scene {
       btnColor: 0x0284c7,
       btnLabel: "CONFIRM SWAP",
       onConfirm: () => {
+        sounds.playClick();
         this.canSwapThisRound = false;
         this.updateActionButtons();
         this.tray.swapAllPieces();
+        this.persistActiveSession();
       },
     });
-    sounds.playClick();
   }
 
   private promptBombConfirmation() {
@@ -248,10 +273,12 @@ class GameScene extends Phaser.Scene {
       btnColor: 0xdc2626,
       btnLabel: "ACTIVATE BOMB",
       onConfirm: () => {
+        sounds.playClick();
         this.canBombThisRound = false;
         this.updateActionButtons();
         this.board.enableBombMode(() => {
           this.board.checkAndClearLines();
+          this.persistActiveSession();
           this.checkGameOver();
         });
       },
@@ -355,6 +382,7 @@ class GameScene extends Phaser.Scene {
   private performUndo() {
     if (!this.canUndo || !this.lastSnapshot) return;
 
+    sounds.playClick();
     this.board.restoreGrid(this.lastSnapshot.gridData);
     this.tray.restoreBatch(this.lastSnapshot.trayTemplates);
     this.score = this.lastSnapshot.score;
@@ -368,7 +396,7 @@ class GameScene extends Phaser.Scene {
     this.canUndo = false;
     this.lastSnapshot = null;
     this.updateActionButtons();
-    sounds.playClick();
+    this.persistActiveSession();
   }
 
   private handlePiecePlaced(tileCount: number) {
@@ -381,7 +409,9 @@ class GameScene extends Phaser.Scene {
       this.score += linesCleared * 100 * linesCleared;
       sounds.playLineClear(linesCleared);
     }
+
     this.updateScores();
+    this.persistActiveSession();
   }
 
   private updateScores() {
@@ -389,7 +419,36 @@ class GameScene extends Phaser.Scene {
     if (this.score > this.bestScore) {
       this.bestScore = this.score;
       this.bestScoreText.setText(this.bestScore.toString());
+      StorageManager.saveBestScore(this.bestScore);
     }
+  }
+
+  private persistActiveSession() {
+    StorageManager.saveGameState({
+      gridData: this.board.gridData,
+      trayTemplates: this.tray.getRemainingTemplates(),
+      nextBatchTemplates: this.tray.nextBatchTemplates,
+      score: this.score,
+      canSwap: this.canSwapThisRound,
+      canBomb: this.canBombThisRound,
+    });
+  }
+
+  private restorePreviousSession() {
+    const saved = StorageManager.getSavedGame();
+    if (!saved) return;
+
+    // Check if saved state has any tiles or score
+    const hasTiles = saved.gridData.some((row) => row.some((v) => v !== 0));
+    if (!hasTiles && saved.score === 0) return;
+
+    this.board.restoreGrid(saved.gridData);
+    this.tray.loadSavedSession(saved.trayTemplates, saved.nextBatchTemplates);
+    this.score = saved.score;
+    this.canSwapThisRound = saved.canSwap;
+    this.canBombThisRound = saved.canBomb;
+    this.updateScores();
+    this.updateActionButtons();
   }
 
   private checkGameOver() {
@@ -468,6 +527,7 @@ class GameScene extends Phaser.Scene {
         this.updateActionButtons();
         this.board.enableBombMode(() => {
           this.board.checkAndClearLines();
+          this.persistActiveSession();
           this.checkGameOver();
         });
       });
@@ -495,6 +555,7 @@ class GameScene extends Phaser.Scene {
         this.canSwapThisRound = false;
         this.updateActionButtons();
         this.tray.swapAllPieces();
+        this.persistActiveSession();
       });
 
       modalElements.push(swapNudgeBtn, swapNudgeText);
@@ -523,6 +584,7 @@ class GameScene extends Phaser.Scene {
   }
 
   private showGameOver() {
+    StorageManager.clearGameState(); // Clear match state on real loss
     this.activeModal = this.add.container(240, 400);
 
     const backdrop = this.add.rectangle(0, 0, 480, 800, 0x000000, 0.85);
@@ -590,6 +652,7 @@ class GameScene extends Phaser.Scene {
       this.updateScores();
       this.board.reset();
       this.tray.reset();
+      StorageManager.clearGameState();
     });
 
     this.activeModal.add([
@@ -611,7 +674,7 @@ const config: Phaser.Types.Core.GameConfig = {
   backgroundColor: "#0c1017",
   scale: {
     mode: Phaser.Scale.FIT,
-    autoCenter: Phaser.Scale.NO_CENTER, // CSS grid now handles exact centering
+    autoCenter: Phaser.Scale.NO_CENTER,
     width: 480,
     height: 800,
   },

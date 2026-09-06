@@ -267,4 +267,26 @@ export class Tray {
     this.prepareNextBatch();
     this.spawnBatch();
   }
+
+  public loadSavedSession(
+    slotsData: (ShapeTemplate | null)[],
+    nextBatch: ShapeTemplate[],
+  ) {
+    this.slots.forEach((s) => s?.container.destroy());
+    this.slots = [null, null, null];
+
+    for (let i = 0; i < 3; i++) {
+      if (slotsData[i]) {
+        this.slots[i] = this.createPiece(
+          this.slotXPositions[i],
+          this.trayY,
+          slotsData[i]!,
+          i,
+        );
+      }
+    }
+
+    this.nextBatchTemplates = nextBatch;
+    this.renderNextPreview();
+  }
 }
