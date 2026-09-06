@@ -126,16 +126,19 @@ export class Board {
 
     sounds.playBombExplosion();
 
-    // Flash bomb center
+    // Heavy tactical camera shake on bomb blast
+    this.scene.cameras.main.shake(220, 0.015);
+
     const cx = this.startX + centerC * this.step;
     const cy = this.startY + centerR * this.step;
-    const shockwave = this.scene.add.circle(cx, cy, 10, 0xffffff, 0.8);
+    const shockwave = this.scene.add.circle(cx, cy, 10, 0xffffff, 0.9);
 
     this.scene.tweens.add({
       targets: shockwave,
-      radius: 90,
+      radius: 95,
       alpha: 0,
-      duration: 300,
+      duration: 320,
+      ease: "Quad.easeOut",
       onComplete: () => shockwave.destroy(),
     });
 

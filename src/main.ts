@@ -405,9 +405,32 @@ class GameScene extends Phaser.Scene {
     this.score += validCount * 10;
 
     const linesCleared = this.board.checkAndClearLines();
+
     if (linesCleared > 0) {
-      this.score += linesCleared * 100 * linesCleared;
+      const lineScore = linesCleared * 100 * linesCleared;
+      this.score += lineScore;
       sounds.playLineClear(linesCleared);
+
+      // Visual Combo Text & Camera Shake FX
+      if (linesCleared === 1) {
+        this.spawnComboPopup(240, 360, `+${lineScore} LINE CLEAR!`, "#38bdf8");
+      } else if (linesCleared === 2) {
+        this.cameras.main.shake(140, 0.006); // Subtle shake
+        this.spawnComboPopup(
+          240,
+          360,
+          `+${lineScore} DOUBLE COMBO!`,
+          "#fbbf24",
+        );
+      } else {
+        this.cameras.main.shake(250, 0.012); // Heavy arcade rumble
+        this.spawnComboPopup(
+          240,
+          360,
+          `+${lineScore} MEGA COMBO x${linesCleared}!`,
+          "#ec4899",
+        );
+      }
     }
 
     this.updateScores();
@@ -663,6 +686,34 @@ class GameScene extends Phaser.Scene {
       restartBtn,
       restartText,
     ]);
+  }
+
+  // Spawns arcade floating score popups that rise and fade
+  private spawnComboPopup(x: number, y: number, text: string, color: string) {
+    const comboText = this.add
+      .text(x, y, text, {
+        fontFamily: FONT_FAMILY,
+        fontSize: "22px",
+        color,
+        fontStyle: "bold",
+        stroke: "#000000",
+        strokeThickness: 4,
+        resolution: 2,
+      })
+      .setOrigin(0.5);
+
+    this.children.bringToTop(comboText);
+
+    this.tweens.add({
+      targets: comboText,
+      y: y - 55,
+      scaleX: 1.25,
+      scaleY: 1.25,
+      alpha: 0,
+      duration: 750,
+      ease: "Back.easeOut",
+      onComplete: () => comboText.destroy(),
+    });
   }
 }
 

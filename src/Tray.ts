@@ -53,10 +53,11 @@ export class Tray {
 
     const label = this.scene.add
       .text(-165, 0, "NEXT ROUND:", {
-        fontFamily: "system-ui, -apple-system, sans-serif",
+        fontFamily: "Arial, -apple-system, sans-serif",
         fontSize: "11px",
         color: "#94a3b8",
         fontStyle: "bold",
+        resolution: 2,
       })
       .setOrigin(0.5);
 
@@ -133,6 +134,28 @@ export class Tray {
     this.onGameOverCheck();
   }
 
+  public loadSavedSession(
+    slotsData: (ShapeTemplate | null)[],
+    nextBatch: ShapeTemplate[],
+  ) {
+    this.slots.forEach((s) => s?.container.destroy());
+    this.slots = [null, null, null];
+
+    for (let i = 0; i < 3; i++) {
+      if (slotsData[i]) {
+        this.slots[i] = this.createPiece(
+          this.slotXPositions[i],
+          this.trayY,
+          slotsData[i]!,
+          i,
+        );
+      }
+    }
+
+    this.nextBatchTemplates = nextBatch;
+    this.renderNextPreview();
+  }
+
   public restoreBatch(templates: (ShapeTemplate | null)[]) {
     this.slots.forEach((s) => s?.container.destroy());
     this.slots = [null, null, null];
@@ -170,6 +193,24 @@ export class Tray {
     const offX = -pW / 2 + miniSize / 2;
     const offY = -pH / 2 + miniSize / 2;
 
+    const shadowRects: Phaser.GameObjects.Rectangle[] = [];
+    const tileRects: Phaser.GameObjects.Rectangle[] = [];
+
+    // 1. Layer shadows behind
+    template.coords.forEach(([r, c]) => {
+      const shadow = this.scene.add.rectangle(
+        offX + c * (miniSize + miniGap) + 1,
+        offY + r * (miniSize + miniGap) + 2,
+        miniSize,
+        miniSize,
+        0x000000,
+        0.3,
+      );
+      container.add(shadow);
+      shadowRects.push(shadow);
+    });
+
+    // 2. Layer interactive colored tiles on top
     template.coords.forEach(([r, c]) => {
       const rect = this.scene.add.rectangle(
         offX + c * (miniSize + miniGap),
@@ -180,6 +221,7 @@ export class Tray {
       );
       rect.setStrokeStyle(1, 0xffffff, 0.4);
       container.add(rect);
+      tileRects.push(rect);
     });
 
     container.setSize(Math.max(60, pW + 16), Math.max(60, pH + 16));
@@ -192,11 +234,24 @@ export class Tray {
       if (this.board.isBombMode) return;
       sounds.playPickup();
       this.scene.children.bringToTop(container);
+
+      // Lift piece: scale up container & cast deeper, softer shadow
       this.scene.tweens.add({
         targets: container,
         scaleX: scaleFactor,
         scaleY: scaleFactor,
-        duration: 80,
+        duration: 90,
+        ease: "Quad.easeOut",
+      });
+
+      shadowRects.forEach((shadow) => {
+        this.scene.tweens.add({
+          targets: shadow,
+          x: shadow.x + 4,
+          y: shadow.y + 10,
+          alpha: 0.55,
+          duration: 90,
+        });
       });
     });
 
@@ -205,7 +260,7 @@ export class Tray {
       (_p: Phaser.Input.Pointer, dragX: number, dragY: number) => {
         if (this.board.isBombMode) return;
         container.x = dragX;
-        container.y = dragY - 60;
+        container.y = dragY - 65; // High lift angle above the finger
 
         const { row, col } = this.board.getGridCoords(
           container.x,
@@ -219,7 +274,6 @@ export class Tray {
 
     container.on("dragend", () => {
       if (this.board.isBombMode) return;
-      sounds.playDrop();
       const { row, col } = this.board.getGridCoords(
         container.x,
         container.y,
@@ -229,6 +283,7 @@ export class Tray {
 
       if (this.board.canPlaceAt(row, col, template.coords)) {
         this.onBeforePiecePlaced();
+        sounds.playDrop();
 
         this.board.placePiece(row, col, template.coords, template.color);
         container.destroy();
@@ -242,6 +297,19 @@ export class Tray {
         this.onGameOverCheck();
       } else {
         this.board.clearGhost();
+
+        // Snap down & retract shadows
+        shadowRects.forEach((shadow, idx) => {
+          const [r, c] = template.coords[idx];
+          this.scene.tweens.add({
+            targets: shadow,
+            x: offX + c * (miniSize + miniGap) + 1,
+            y: offY + r * (miniSize + miniGap) + 2,
+            alpha: 0.3,
+            duration: 180,
+          });
+        });
+
         this.scene.tweens.add({
           targets: container,
           x,
@@ -266,27 +334,5 @@ export class Tray {
     this.slots = [null, null, null];
     this.prepareNextBatch();
     this.spawnBatch();
-  }
-
-  public loadSavedSession(
-    slotsData: (ShapeTemplate | null)[],
-    nextBatch: ShapeTemplate[],
-  ) {
-    this.slots.forEach((s) => s?.container.destroy());
-    this.slots = [null, null, null];
-
-    for (let i = 0; i < 3; i++) {
-      if (slotsData[i]) {
-        this.slots[i] = this.createPiece(
-          this.slotXPositions[i],
-          this.trayY,
-          slotsData[i]!,
-          i,
-        );
-      }
-    }
-
-    this.nextBatchTemplates = nextBatch;
-    this.renderNextPreview();
   }
 }
