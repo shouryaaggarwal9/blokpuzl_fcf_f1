@@ -2,6 +2,7 @@ import Phaser from "phaser";
 import { Board } from "./Board";
 import { Tray } from "./Tray";
 import { type ShapeTemplate } from "./constants";
+import { sounds } from "./SoundManager";
 
 interface UndoSnapshot {
   gridData: number[][];
@@ -86,6 +87,18 @@ class GameScene extends Phaser.Scene {
       color: "#fbbf24",
       fontStyle: "bold",
       resolution: 2,
+    });
+    // Audio Mute Toggle Button
+    const muteBtn = this.add
+      .text(435, 38, "🔊", {
+        fontSize: "20px",
+        resolution: 2,
+      })
+      .setOrigin(0.5);
+    muteBtn.setInteractive({ useHandCursor: true });
+    muteBtn.on("pointerdown", () => {
+      sounds.isMuted = !sounds.isMuted;
+      muteBtn.setText(sounds.isMuted ? "🔇" : "🔊");
     });
   }
 
@@ -222,6 +235,7 @@ class GameScene extends Phaser.Scene {
         this.tray.swapAllPieces();
       },
     });
+    sounds.playClick();
   }
 
   private promptBombConfirmation() {
@@ -354,6 +368,7 @@ class GameScene extends Phaser.Scene {
     this.canUndo = false;
     this.lastSnapshot = null;
     this.updateActionButtons();
+    sounds.playClick();
   }
 
   private handlePiecePlaced(tileCount: number) {
@@ -364,6 +379,7 @@ class GameScene extends Phaser.Scene {
     const linesCleared = this.board.checkAndClearLines();
     if (linesCleared > 0) {
       this.score += linesCleared * 100 * linesCleared;
+      sounds.playLineClear(linesCleared);
     }
     this.updateScores();
   }

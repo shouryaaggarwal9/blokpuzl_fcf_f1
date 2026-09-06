@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import { SHAPES, type ShapeTemplate, CELL_SIZE, CELL_GAP } from "./constants";
 import { Board } from "./Board";
+import { sounds } from "./SoundManager";
 
 export interface TraySlot {
   container: Phaser.GameObjects.Container;
@@ -189,6 +190,7 @@ export class Tray {
 
     container.on("dragstart", () => {
       if (this.board.isBombMode) return;
+      sounds.playPickup();
       this.scene.children.bringToTop(container);
       this.scene.tweens.add({
         targets: container,
@@ -217,6 +219,7 @@ export class Tray {
 
     container.on("dragend", () => {
       if (this.board.isBombMode) return;
+      sounds.playDrop();
       const { row, col } = this.board.getGridCoords(
         container.x,
         container.y,

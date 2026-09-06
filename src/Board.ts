@@ -6,6 +6,7 @@ import {
   BOARD_TOP_Y,
   type ShapeTemplate,
 } from "./constants";
+import { sounds } from "./SoundManager";
 
 export class Board {
   private scene: Phaser.Scene;
@@ -122,6 +123,8 @@ export class Board {
   private detonateBomb(centerR: number, centerC: number) {
     this.clearBombReticle();
     this.isBombMode = false;
+
+    sounds.playBombExplosion();
 
     // Flash bomb center
     const cx = this.startX + centerC * this.step;
