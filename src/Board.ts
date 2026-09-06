@@ -65,7 +65,6 @@ export class Board {
         cell.setStrokeStyle(1, 0x27354a);
         cell.setInteractive({ useHandCursor: true });
 
-        // Cell listeners for Bomb power
         cell.on("pointermove", () => {
           if (this.isBombMode) this.showBombReticle(r, c);
         });
@@ -91,26 +90,36 @@ export class Board {
     this.clearBombReticle();
   }
 
-  private showBombReticle(centerR: number, centerC: number) {
+  // Clamps center coordinate between index 1 and 8 so a full 3x3 is guaranteed inside the 10x10 board
+  private getClampedBombCenter(
+    r: number,
+    c: number,
+  ): { centerR: number; centerC: number } {
+    return {
+      centerR: Phaser.Math.Clamp(r, 1, GRID_SIZE - 2),
+      centerC: Phaser.Math.Clamp(c, 1, GRID_SIZE - 2),
+    };
+  }
+
+  private showBombReticle(r: number, c: number) {
     this.clearBombReticle();
+    const { centerR, centerC } = this.getClampedBombCenter(r, c);
 
     for (let dr = -1; dr <= 1; dr++) {
       for (let dc = -1; dc <= 1; dc++) {
         const tr = centerR + dr;
         const tc = centerC + dc;
-        if (tr >= 0 && tr < GRID_SIZE && tc >= 0 && tc < GRID_SIZE) {
-          const cell = this.gridCells[tr][tc];
-          const reticle = this.scene.add.rectangle(
-            cell.x,
-            cell.y,
-            CELL_SIZE,
-            CELL_SIZE,
-            0xef4444,
-            0.45,
-          );
-          reticle.setStrokeStyle(2, 0xfca5a5);
-          this.bombHoverCells.push(reticle);
-        }
+        const cell = this.gridCells[tr][tc];
+        const reticle = this.scene.add.rectangle(
+          cell.x,
+          cell.y,
+          CELL_SIZE,
+          CELL_SIZE,
+          0xef4444,
+          0.45,
+        );
+        reticle.setStrokeStyle(2, 0xfca5a5);
+        this.bombHoverCells.push(reticle);
       }
     }
   }
@@ -120,13 +129,12 @@ export class Board {
     this.bombHoverCells = [];
   }
 
-  private detonateBomb(centerR: number, centerC: number) {
+  private detonateBomb(rawR: number, rawC: number) {
+    const { centerR, centerC } = this.getClampedBombCenter(rawR, rawC);
     this.clearBombReticle();
     this.isBombMode = false;
 
     sounds.playBombExplosion();
-
-    // Heavy tactical camera shake on bomb blast
     this.scene.cameras.main.shake(220, 0.015);
 
     const cx = this.startX + centerC * this.step;
@@ -146,24 +154,22 @@ export class Board {
       for (let dc = -1; dc <= 1; dc++) {
         const tr = centerR + dr;
         const tc = centerC + dc;
-        if (tr >= 0 && tr < GRID_SIZE && tc >= 0 && tc < GRID_SIZE) {
-          this.gridData[tr][tc] = 0;
-          const cell = this.gridCells[tr][tc];
+        this.gridData[tr][tc] = 0;
+        const cell = this.gridCells[tr][tc];
 
-          this.scene.tweens.add({
-            targets: cell,
-            scaleX: 0.05,
-            scaleY: 0.05,
-            fillColor: 0xef4444,
-            duration: 180,
-            yoyo: true,
-            onComplete: () => {
-              cell.setScale(1);
-              cell.setFillStyle(0x1c2536);
-              cell.setStrokeStyle(1, 0x27354a);
-            },
-          });
-        }
+        this.scene.tweens.add({
+          targets: cell,
+          scaleX: 0.05,
+          scaleY: 0.05,
+          fillColor: 0xef4444,
+          duration: 180,
+          yoyo: true,
+          onComplete: () => {
+            cell.setScale(1);
+            cell.setFillStyle(0x1c2536);
+            cell.setStrokeStyle(1, 0x27354a);
+          },
+        });
       }
     }
 
@@ -325,6 +331,8 @@ export class Board {
 
   public restoreGrid(snapshot: number[][]) {
     this.clearGhost();
+    this.clearBombReticle();
+    this.isBombMode = false;
     for (let r = 0; r < GRID_SIZE; r++) {
       for (let c = 0; c < GRID_SIZE; c++) {
         const val = snapshot[r][c];
